@@ -1,4 +1,4 @@
-public class Particle extends Thread {
+public class Particle  {
   Point location;
   Point offset;
   color fill;
@@ -12,6 +12,7 @@ public class Particle extends Thread {
   long delay;
   int x;
   int currentRadius;
+  float lifespan;
  
   Particle(Point loc, Point off, int rad) {
     location = loc;
@@ -20,8 +21,9 @@ public class Particle extends Thread {
     currentRadius = rad/2;
     count = 0;
     x = 0;
+    lifespan = 1000;
   }
-   
+ 
   void run() {
     if (millis() > delay) {
       update();
@@ -45,11 +47,22 @@ public class Particle extends Thread {
       count++; 
       x++; 
     }
+    lifespan -= 1.0;
   }
   
   void display() {
-    noStroke();
+    ellipseMode(CENTER);
     fill(this.fill, this.opacity);
+    ellipse((int)location.x+offset.x, (int)location.y+offset.y, 1, 1);
+    ellipse((int)location.x+offset.x, (int)location.y+offset.y, 2, 2);
     ellipse((int)location.x+offset.x, (int)location.y+offset.y, currentRadius, currentRadius);
+  }
+  
+  boolean isDead() {
+    if (lifespan < 0.0) {
+      return true;
+    } else {
+      return false;
+    }
   }
 }

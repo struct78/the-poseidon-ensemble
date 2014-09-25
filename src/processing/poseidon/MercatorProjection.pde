@@ -2,10 +2,8 @@ import java.awt.Point;
 
 static class MercatorProjection {
   public static Point CoordinatesToPoint(int width, int height, double latitude, double longitude) {
-    double x = (width * (180 + longitude) / 360) % width;
-    double radlat =latitude * Math.PI / 180;
-    double y = Math.log(Math.tan((radlat/2) + (Math.PI/4)));
-    y = (height/2) - (width * y / (2 * Math.PI));
+    double x = (longitude+180)*(width/360);
+    double y = (height/2)-(width*Math.log(Math.tan((PI/4)+((latitude*PI/180)/2)))/(TWO_PI));
     return new Point((int)x, (int)y); 
   }
 }

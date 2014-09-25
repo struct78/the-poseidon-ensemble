@@ -8,21 +8,22 @@ class Note extends Thread {
   String line;
   int index;
   int total;
-  PApplet parent;
+  MidiBus bus;
   
-  Note() {
+  Note(MidiBus bus) {
+    this.bus = bus;
   }
   
   void run() {
     try {
       // Open the MIDI Bus
-      MidiBus bus = new MidiBus(parent, 1, "Poseidon");
+      //MidiBus bus = new MidiBus(parent, 1, "Poseidon");
       // Send the note
-      bus.sendNoteOn(this.channel, this.pitch, this.velocity);
+      bus.sendNoteOn(channel, pitch, velocity);
       // Sleep keep the note playing
       Thread.sleep((long)duration);
       // Stop playing the note
-      bus.sendNoteOff(this.channel, this.pitch, this.velocity);
+      bus.sendNoteOff(channel, pitch, velocity);
     }
     catch(Exception e){
       println(e);

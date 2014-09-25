@@ -5,6 +5,7 @@ public class QuakeTask extends TimerTask {
  } 
  
  public void run() {
+   thread.setDaemon(true);
    thread.start();
  }
 }

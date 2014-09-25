@@ -2,3 +2,5 @@
 *.cfg
 Samples/*
 Icon*
+*.db
+*.db-journal

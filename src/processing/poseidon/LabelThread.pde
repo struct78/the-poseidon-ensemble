@@ -1,4 +1,4 @@
-public class LabelThread extends Thread {
+  public class LabelThread extends Thread {
    String label = "";
    ArrayList<Label> labels;
    
@@ -9,8 +9,8 @@ public class LabelThread extends Thread {
    void run() {
     try {
      for ( Label l : labels ) {
-      Thread.sleep(l.delay);
       label = l.date;
+      Thread.sleep(l.delay);
      }
     }
     catch(Exception e){

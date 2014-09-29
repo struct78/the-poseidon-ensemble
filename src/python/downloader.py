@@ -1,0 +1,39 @@
+import os
+import urllib
+import datetime
+
+def daterange(start, stop, step_days=1):
+    current = start
+    step = datetime.timedelta(step_days)
+    if step_days > 0:
+        while current < stop:
+            yield current
+            current += step
+    elif step_days < 0:
+        while current > stop:
+            yield current
+            current += step
+    else:
+        raise ValueError("daterange() step_days argument must not be zero")
+        
+
+ 
+date_format = '%Y-%m-%d'
+step = 7
+DOWNLOADS_DIR = './cache'
+url = "http://comcat.cr.usgs.gov/fdsnws/event/1/query?starttime={0}%2000:00:00&minmagnitude=0.1&format=csv&endtime={1}%2023:59:59&maxmagnitude=10&orderby=time-asc"
+
+startRange = datetime.date(1900, 1, 1)
+endRange = datetime.date(2014, 12, 31)
+
+for i in daterange(startRange, endRange, step):
+	start = i.strftime(date_format)
+	end = (i+datetime.timedelta(days=step-1)).strftime(date_format)
+	query = os.path.join(DOWNLOADS_DIR, start + "_" + end + ".csv")
+	
+	try:
+		if not os.path.isfile(query):
+			urllib.urlretrieve(url.format(start, end), query)
+			print ("Downloading results for " + start + " to " + end)
+	except:
+		print ("Could not download for " + start + " to " + end)

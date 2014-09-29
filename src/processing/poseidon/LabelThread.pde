@@ -1,4 +1,4 @@
-  public class LabelThread extends Thread {
+public class LabelThread extends Thread {
    String label = "";
    ArrayList<Label> labels;
    

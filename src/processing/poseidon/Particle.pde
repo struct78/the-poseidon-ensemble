@@ -56,6 +56,11 @@ public class Particle  {
   void display() {
     translate(0, 0);
     ellipseMode(CENTER);
+    
+    if (lifespan < 1000) {
+      this.opacity /= 1.5;  
+    }
+    
     fill(this.fill, this.opacity);
     ellipse((int)location.x+offset.x, (int)location.y+offset.y, 1, 1);
     ellipse((int)location.x+offset.x, (int)location.y+offset.y, 2, 2);

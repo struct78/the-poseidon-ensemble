@@ -8,6 +8,8 @@ The globe is divided into 8 segments with each representing a single or group of
 
 Bezier curves between sites identify patterns between seismic events. Stronger lines indicate that events in one region to follow another.
 
+3 remaining MIDI channels are reserved for special events (different activity types, earthquakes > magnitude 6, etc.)
+
 ## Processing
 
 The Processing sketch requires the [themidibus](https://github.com/sparks/themidibus) library to run. It uses 11 MIDI channels on a virtual MIDI port named Poseidon, but you can use your own by modifying this line of code in Poseidon.pde

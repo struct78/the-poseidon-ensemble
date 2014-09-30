@@ -1,6 +1,6 @@
 # The Poseidon Ensemble
 
-The Poseidon Ensemble is a project that generates an orchestral score from global seismic activity. 
+The Poseidon Ensemble is a project that generates an orchestral score and data visualisation from global seismic activity. 
 
 ## How it works
 

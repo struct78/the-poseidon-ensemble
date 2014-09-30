@@ -4,7 +4,11 @@ The Poseidon Ensemble is a project that generates an orchestral score from globa
 
 ## Processing
 
-The Processing sketch requires the [themidibus](https://github.com/sparks/themidibus) library to run. It uses 11 MIDI channels on a virtual MIDI port named Poseidon. 
+The Processing sketch requires the [themidibus](https://github.com/sparks/themidibus) library to run. It uses 11 MIDI channels on a virtual MIDI port named Poseidon, but you can use your own by modifying this line of code in Poseidon.pde
+
+```
+bus = new MidiBus(this, -1, "Poseidon");
+```
 
 [How to create virtual MIDI ports](https://www.ableton.com/en/articles/using-virtual-MIDI-buses-live/)
 

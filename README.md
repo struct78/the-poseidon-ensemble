@@ -6,7 +6,7 @@ The Poseidon Ensemble is a project that generates an orchestral score and data v
 
 The globe is divided into 8 segments with each representing a single or group of instruments. Each seismic event constitutes a single note, with pitch and velocity determined by the depth and magnitude of the event. Time between notes is determined by time between each seismic event, and time is accelerated by 7500x.
 
-Bezier curves between sites identify patterns between seismic events. Stronger lines indicate that events in one region to follow another.
+Bezier curves between sites identify patterns between seismic events. Stronger lines indicate that events in one region tend to follow another.
 
 3 remaining MIDI channels are reserved for special events (different activity types, earthquakes > magnitude 6, etc.)
 

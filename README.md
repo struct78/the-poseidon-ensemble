@@ -2,6 +2,12 @@
 
 The Poseidon Ensemble is a project that generates an orchestral score from global seismic activity. 
 
+## How it works
+
+The globe is divided into 8 segments with each representing a single or group of instruments. Each seismic event constitutes a single note, with pitch and velocity determined by the depth and magnitude of the event. Time between notes is determined by time between each seismic event, and time is accelerated by 7500x.
+
+Bezier curves between sites identify patterns between seismic events. Stronger lines indicate that events in one region to follow another.
+
 ## Processing
 
 The Processing sketch requires the [themidibus](https://github.com/sparks/themidibus) library to run. It uses 11 MIDI channels on a virtual MIDI port named Poseidon, but you can use your own by modifying this line of code in Poseidon.pde

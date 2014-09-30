@@ -1,17 +1,14 @@
 # The Poseidon Ensemble
-=====================
 
 The Poseidon Ensemble is a project that generates an orchestral score from global seismic activity.
 
 ## Processing
-=====================
 
 The Processing sketch requires the [themidibus](https://github.com/sparks/themidibus) library to run. It uses 11 MIDI channels on a virtual MIDI port named Poseidon. 
 
 [How to create virtual MIDI ports](https://www.ableton.com/en/articles/using-virtual-MIDI-buses-live/)
 
 ## Python
-=====================
 
 Python scripts to download and merge all the seismic data from the [U.S. Geological Survey](http://earthquake.usgs.gov/earthquakes/search/) have been included. 
 
@@ -29,7 +26,6 @@ url = "http://comcat.cr.usgs.gov/fdsnws/event/1/query?starttime={0}%2000:00:00&m
 ```
 
 ## Ableton Live
-=====================
 
 To use the Ableton set provided, you will need [Ableton Live 9 Suite](https://www.ableton.com/en/live/new-in-9/) with the [following packs](https://www.ableton.com/en/packs/#?genres=orchestral). 
 * Orchestral Brass

@@ -12,6 +12,13 @@ bus = new MidiBus(this, -1, "Poseidon");
 
 [How to create virtual MIDI ports](https://www.ableton.com/en/articles/using-virtual-MIDI-buses-live/)
 
+### Start Date
+Over 110 years worth of data is included with the source code, however you can start the visualisation/score at any point by modifying this line
+
+```
+Calendar startDate = new GregorianCalendar(2004, 11, 12);
+```
+
 ## Python
 
 Python scripts to download and merge all the seismic data from the [U.S. Geological Survey](http://earthquake.usgs.gov/earthquakes/search/) have been included. 

@@ -1,6 +1,7 @@
 import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.*;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
@@ -11,21 +12,102 @@ import java.awt.Point;
 import themidibus.*;
 import javax.sound.midi.*;
 
-int SPEED = 7500;
-int START_OFFSET = 20000;
-int CIRCLE_KEYFRAMES = 2;
-int CIRCLE_LIFETIME = 15000;
-int INTRO_LIFETIME = 5000;
-int OPACITY_FLOOR = 20;
-int OPACITY_CEILING = 70;
-int SCALE_FACTOR = 8;
+// TODO
+// Check size of TV
+// Dashed/dotted lines on bezier curves
+// Improve design/create fonts
+// Look into randomising appregator
+// Put border around map?
+// Adjust vibraphone scale
+// Move double bass/bassoon to channel 3?
 
-boolean isFullScreen = false;
+/* 
+==================================
+INSTRUMENT LIST
+==================================
+   Channel 1: Piano (Pacific ocean. Bottom row, first square)
+   Channel 2: Tuba/Trombone (Alaska. Top row, first square)
+   Channel 3: Cello/Violin/Double Bass section (South America. Bottom row, second square)
+   Channel 4: Double Bass Section (North America/Greenland. Top row, second square)
+   Channel 5: Clarinet/Flute (Southern Africa. Bottom row, third square)
+   Channel 6: Vibraphone (Europe/Middle East. Top row, third square)
+   Channel 7: Bassoon/Contrabassoon (Australia/New Zealand. Bottom row, fourth square)
+   Channel 8: French Horn/Bass Trombone (China/Japan. Top row, fourth square.)
+*/
+ 
+// Debug flag. Hit 'd' key to enable.
+boolean DEBUG = false;
+
+// Frames per second
+int FPS = 60;
+
+// Display Mode
+DisplayMode DISPLAY_MODE = DisplayMode.RETINA;
+
+// Time compression
+int SPEED = 2000;
+
+// Approximate time to parse CSV file (milliseconds)
+int START_OFFSET = 15000;
+
+// How long circle/bezier should live for in days
+int CIRCLE_LIFETIME = 2;
+
+// Introduction length
+int INTRO_LIFETIME = 5000;
+
+// Lowest opacity for circles/bezier
+int OPACITY_FLOOR = 40;
+
+// Highest opacity for circles/bezier
+int OPACITY_CEILING = 90;
+
+// Note scale factor
+int SCALE_FACTOR = 10;
+
+// Radius = magnitude^CIRCLE_SCALE_FACTOR
+float CIRCLE_SCALE_FACTOR = 1.8;
+
+// Minimum pitch
+int PITCH_MIN = 35;
+
+// Maximum pitch
+int PITCH_MAX = 80;
+
+// Minimum velocity
+int VELOCITY_MIN = 30;
+
+// Maximum velocity
+int VELOCITY_MAX = 127;
+
+// Minimum note duration in milliseconds
+int NOTE_MIN = 40;
+
+// Maximum note duration in milliseconds
+int NOTE_MAX = 90;
+
+// Channel isolation
+boolean CHANNEL_ISOLATION = false;
+
+// Channel to isolate
+int CHANNEL_ISOLATED = 1;
+
+/* 
+ Database of seismic events
+ quakes.csv = 110 years worth of data
+ quakes-2014.csv = 1 year worth of data
+ quakes-sample.csv = 3 seismic events
+ */
+String QUAKES_CSV = "quakes.csv";
+
+// Start date offset
+Calendar startDate = new GregorianCalendar(2002, 3, 19);
+
+boolean isFullScreen = true;
 boolean visualsOnly = false;
 boolean saveFrames = false;
 int width;
 int height;
-Calendar startDate = new GregorianCalendar(2004, 11, 12);
 
 Table table;
 TableRow previousRow;
@@ -39,7 +121,7 @@ SimpleDateFormat format = new SimpleDateFormat(dateFormat);
 SimpleDateFormat simpleFormat = new SimpleDateFormat(dateFormatLabel);
 
 Timer timer = new Timer();
-long start, delay, elapsed;
+long start, delay, elapsed, graphicsDelay = 0;
 
 // CSV
 double latitude, longitude;
@@ -53,7 +135,6 @@ LabelThread labelThread;
 
 ArrayList<Rectangle> grid = new ArrayList();
 ArrayList<Integer> colours = new ArrayList();
-ArrayList<Effect> effects = new ArrayList();
 ArrayList<Label> labels = new ArrayList();
 
 Particle circle;
@@ -63,46 +144,25 @@ Rectangle canvas;
 
 PFont fontBold;
 PFont fontLight;
-PImage image;
+PImage map;
 
 
 void setup() {
   width = displayWidth;
   height = displayHeight;
-  frameRate(30);
-  
+  frameRate(FPS);
+
   size(width, height, P3D);
 
-  canvas = new Rectangle(50, 100, width-100, height-150);
+  //canvas = new Rectangle(50, 100, width-100, height-150);
+  canvas = new Rectangle(20, 20, width-40, height-40);
   fontBold = loadFont("BebasNeueBold-48.vlw");
   fontLight = loadFont("BebasNeueLight-48.vlw");
+  map = loadImage("map-low-res.jpg");
 
   // Colours are seasonal
   // Left -> Right = January - December
   colours.addAll(Arrays.asList(#e31826, #881832, #942aaf, #ce1a9a, #ffb93c, #00e0c9, #234baf, #47b1de, #b4ef4f, #26bb12, #3fd492, #f7776d));
-
-
-  // Effects rack
-  // Piano 
-  effects.add(new Effect(0, 0.75f, 1)); 
-  // Cello Section 
-  effects.add(new Effect(1, 1, 0.125)); 
-  // Doule Bass Section Pizzicato / Cello Solo Staccato
-  effects.add(new Effect(2, 1, 1.2)); 
-  // Double Bass Section / Bb Clarinet Section Legato LE
-  effects.add(new Effect(3, 1, 0.8)); 
-  // Violin Solo
-  effects.add(new Effect(4, 0.4, 0.8)); 
-  // Double Bass Solo LE
-  effects.add(new Effect(5, 1, 0.8));
-  // Bassoon / Contrabassoon
-  effects.add(new Effect(6, 0.8, 0.75));
-  // French Horn
-  effects.add(new Effect(7, 0.8, 0.5));
-  // Glockenspeil
-  effects.add(new Effect(9, 1, 0.2));
-  // Tuba
-  effects.add(new Effect(10, 0.6, 0.5));
 
   // Set the delay between notes
   // We start after 5 seconds
@@ -112,23 +172,22 @@ void setup() {
   ps = new ParticleSystem();
   bs = new BezierCurveSystem();
 
-  for ( int i = 0; i <= 360; i+=90) {
-    // Northern hemisphere
-    grid.add(new Rectangle(i, 0, 90, 90));
-    //Southern Hemisphere
-    grid.add(new Rectangle(i, 90, 90, 90));
+  for (int x = 0 ; x < 360; x += 90) {
+    for (int y = 0 ; y < 180 ; y += 90) {
+      grid.add(new Rectangle(x, y, 90, 90));
+    }
   }
 
   // Load the data
-  table = loadTable("quakes.csv", "header");
+  table = loadTable(QUAKES_CSV, "header");
 
-  int x = 0;
+  int x = 0, y = 0;
   int count = table.getRowCount();
 
   // Start timestamp
   start = millis();
   bus = new MidiBus(this, -1, "Poseidon");
-  
+
   for (TableRow row : table.rows ()) {
     // Extract the data
     date = row.getString("time");
@@ -146,214 +205,171 @@ void setup() {
     try {
       d1 = format.parse(previousDate);
       d2 = format.parse(date);
-      
+
       // If the date is before the start time we want then skip to the next iteration
       if (d2.after(startDate.getTime())) {
-  
+
         // Diff in milliseconds
         long diff = d2.getTime() - d1.getTime();
-  
+
         // Increase the delay
         //delay += ((diff/SPEED) + ((millis()-start)/1000));
         delay += (diff/SPEED);
-  
+
         // Create the note
         note = new Note(bus);
         // Each instrument/section represents 1/8th of the globe
         note.channel = getChannelFromCoordinates(latitude, longitude); 
         // How hard the note is hit
-        note.velocity = mapDepth(depth);
+        note.velocity = mapMagnitude(magnitude);
         // Pitch of the note
-        note.pitch = mapMagnitude(magnitude); 
-        // Note index. For debugging purposes only
-        note.index = x; 
-        // MIDIBus needs a parent
-        //note.parent = this;
-        // Total number of notes. For debugging purposes only.
-        note.total = count; 
-        // Add effects
-        note = processEffects(note); 
+        note.pitch = mapDepth(depth); 
         // How long the note is played for, on some instruments this makes no difference
         note.duration = mapMagnitudeToLength(magnitude);
   
+        if (CHANNEL_ISOLATION) {
+          if (note.channel!=CHANNEL_ISOLATED) {
+            delay -= (diff/SPEED);
+            continue;
+          }
+        }
+  
         if (!visualsOnly) {
-          // Add the note to a task schedule
+          // Add the note to task schedule
           task = new QuakeTask(note);
           timer.schedule(task, delay);
         }
-  
+
         // Drawing task
         // This draws a circle where the earthquake originated from
-  
+
         Point point = MercatorProjection.CoordinatesToPoint(canvas.width, canvas.height, latitude, longitude);
-  
+
         // Get the colour from the month
         color fill = getColourFromMonth(d2.getMonth());
         Point offset = new Point(canvas.x, canvas.y);
-  
+
         // Exponential radius
-        int radius = abs((int)(pow((float)magnitude, 1.2)));
-  
+        int radius = abs(int(pow(magnitude, CIRCLE_SCALE_FACTOR)));
+
         // Create the particle
         circle = new Particle(point, offset, radius);
         // Colour
         circle.fill = fill;
         // Opacity is determined by depth. Lower = less opaque.
-        circle.opacity = mapDepth(depth, OPACITY_CEILING, OPACITY_FLOOR);
+        circle.opacity = mapDepth(depth, int(OPACITY_CEILING*DISPLAY_MODE.get()), int(OPACITY_FLOOR*DISPLAY_MODE.get()));
         // When the circle appears
         circle.delay = delay;
-        // Number of keyframes per cycle. Lower = quicker.
-        circle.keyframes = CIRCLE_KEYFRAMES;
-        // Exponential length of animation
-        circle.totalKeyframes = CIRCLE_KEYFRAMES*(int)(pow(abs((float)magnitude), 2));
+        // Time offset
+        circle.timeOffset = millis();
         // How long the circle lives for before being removed
-        circle.lifespan = CIRCLE_LIFETIME;
-  
+        circle.lifespan = ((1000*60*60*24)*CIRCLE_LIFETIME)/SPEED;
+
         // Add the particle to the particle system
         ps.addParticle(circle);
-        
-        
-        if (x >= 1) {
-          previousRow = table.getRow(x-1);
-          if (previousRow != null) {
-            Point previousPoint = MercatorProjection.CoordinatesToPoint(canvas.width, canvas.height, previousRow.getDouble("latitude"), previousRow.getDouble("longitude"));
-            
-            if (previousPoint.x!=point.x && previousPoint.y!=point.x) {
-              BezierCurve curve = new BezierCurve(new PVector(point.x+offset.x, point.y+offset.y), new PVector(previousPoint.x+offset.x, previousPoint.y+offset.y));
-              curve.fill = circle.fill;
-              curve.opacity = OPACITY_FLOOR;
-              curve.lifespan = circle.lifespan;
-              curve.delay = circle.delay;
-              bs.addBezierCurve(curve);
-            }
-          }
+
+
+        if (x > 0) {
+          previousRow = table.getRow(y-1);
+          Point previousPoint = MercatorProjection.CoordinatesToPoint(canvas.width, canvas.height, previousRow.getDouble("latitude"), previousRow.getDouble("longitude"));
+
+          BezierCurve curve = new BezierCurve(new PVector(point.x+offset.x, point.y+offset.y), new PVector(previousPoint.x+offset.x, previousPoint.y+offset.y));
+          curve.fill = circle.fill;
+          curve.opacity = int((OPACITY_FLOOR/2)*DISPLAY_MODE.get());
+          curve.lifespan = circle.lifespan;
+          curve.delay = circle.delay;
+          curve.timeOffset = millis();
+          bs.addBezierCurve(curve);
         }
-  
-  
-        label = new Label(simpleFormat.format(d2).toString(), (long)(abs(diff/SPEED)));
+
+        x++;
+
+        label = new Label(simpleFormat.format(d2).toString(), (diff/SPEED));
         labels.add(label);
-  
-  
+
+
         // Major/Great earthquakes
-        // Low drone/kick
+        // Kettle Drum
+        // Tuba
+        // Drone
         if (magnitude >= 6) {
           note = new Note(bus);
           note.channel = 8;
           note.velocity = 127;
           note.pitch = 36;
           note.duration = 200;
-          note.index = x;
-          note.total = count;
-  
-          note = processEffects(note);
-  
+
           if (!visualsOnly) {
             task = new QuakeTask(note);
             timer.schedule(task, delay);
           }
         }
-  
-        // Shallow earthquake
-        // Glockenspeil
-        if (depth < 5) {
-  
+        
+        
+        // Small earthquakes
+        if (magnitude <= 2) {
           note = new Note(bus);
           note.channel = 9;
-          note.velocity = mapDepth(depth);
-          note.pitch = mapMagnitude(magnitude);
+          note.velocity = mapMagnitude(magnitude);
+          note.pitch = mapDepth(depth); 
           note.duration = mapMagnitudeToLength(magnitude);
-          note.index = x;
-          note.total = count;
-  
-          note = processEffects(note);
-          
-          
+
           if (!visualsOnly) {
             task = new QuakeTask(note);
-            timer.schedule(task, delay);
-          }
-        }
-  
-        // Same magnitude
-        // Tuba
-        if (previousRow != null) {
-          if (magnitude == previousRow.getFloat("mag")) {
-            note = new Note(bus);
-            note.channel = 10;
-            note.velocity = mapDepth(depth);
-            note.pitch = mapMagnitude(magnitude, 60, 100);
-            note.duration = mapMagnitudeToLength(magnitude);
-            note.index = x;
-            note.total = count;
-    
-            note = processEffects(note);
-            
-            if (!visualsOnly) {
-              task = new QuakeTask(note);
-              timer.schedule(task, delay);
-            }
+            timer.schedule(task, delay+500);
           }
         }
       }
+      // TODO??
       //mining_explosion
       //explosion
       //landslide
       //quarry
       //rock_burst
-      x++;
     }
     catch(Exception e) {
       println(e);
     }
     // Update the previous date to the current date for the next iteration
     previousDate = date;
+    y++;
   }
 
-  
+  // This is important!
+  // If you don't reverse the particle and bezier systems, performance will be seriously degraded
+  // Each system bails out of the run() method called in draw() below if elements aren't ready to animate yet
+  // instead of unnecessarily iterating through elements that won't be displayed on screen
+  Collections.reverse(ps.particles);
+  Collections.reverse(bs.beziers);
+
   labelThread = new LabelThread(labels);
   task = new QuakeTask(labelThread);
   timer.schedule(task, START_OFFSET-(millis()-start));
 
   addShutdownHook();
-  memory();
-  
+  //memory();
+
   table = null;
   println("Estimated song length: " + delay/100/60 + " minutes");
+
+
+  long end = millis();
+  println("Setup lasted " + end + "ms");
 }
 
-Note processEffects(Note note) {
-  for (Effect effect : effects) {
-    if (note.channel == effect.channel) {
-      note.pitch = (int)(note.pitch*effect.pitch);
-      note.velocity = (int)(note.velocity*effect.velocity);
-    }
-  }
-  return note;
-}
 
-/* 
- Channel 1: Piano (West + Mid US/Canada/Alaska)
- Channel 2: Cello Section (Antartica/Pacfic Ocean)
- Channel 3: Double Bass Section Pizzicato/Cello Solo (Greenland/East US)
- Channel 4: Bb Clarinet Section Legato LE/Double Bass Section (South America)
- Channel 5: Violin Solo (Europe/Russia)
- Channel 6: Double Bass Solo LE (South Africa)
- Channel 7: Bassoon (China)
- Channel 8: Violin Section Pizzicato (Australia/NZ/SE Asia)
- */
 int getChannelFromCoordinates(double latitude, double longitude) {
-  int x = 0;
   latitude = latitude+90;
   longitude = longitude+180;
 
   for ( Rectangle rectangle : grid) {
     Point2D.Double point = new Point2D.Double(longitude, latitude);
     if (rectangle.contains(point)) {
-      return x;
+      return grid.indexOf(rectangle);
     }
-    x++;
   }
-  return 7;
+
+  return 0;
 }
 
 
@@ -366,28 +382,31 @@ boolean sketchFullScreen() {
 }
 
 int mapDepth(float depth) {
-  return (int)map(depth, 0, 750, 127, 1); 
+  return invert(int(map(depth, 0, 750, PITCH_MIN, PITCH_MAX)), PITCH_MIN, PITCH_MAX);
 }
 
 int mapDepth(float depth, int min, int max) {
-  return (int)map((float)depth, 0, 750, min, max);
+  return invert(int(map(depth, 0, 750, min, max)), min, max);
 }
 
 int mapMagnitude(float magnitude) {
-  return (int)map(magnitude, 0, 10, 21, 108);
+  return int(map(magnitude, 0, 10, VELOCITY_MIN, VELOCITY_MAX));
 }
 
 int mapMagnitude(float magnitude, int min, int max) {
-  return (int)map(magnitude, 0, 10, min, max);
+  return int(map(magnitude, 0, 10, min, max));
 }
 
 int mapMagnitudeToLength(float magnitude) {
-  return (int)map(magnitude, 0, 10, 50, 500) * SCALE_FACTOR;
+  return int(map(magnitude, 0, 10, NOTE_MIN, NOTE_MAX) * SCALE_FACTOR);
 }
 
+int invert(int n, int min, int max) {
+  return (max-n)+min;
+}
 
 void memory() {
-  MemoryManager mem = new MemoryManager(); 
+  MemoryManager mem = new MemoryManager();
 }
 
 void addShutdownHook () {
@@ -399,7 +418,7 @@ void addShutdownHook () {
       }
 
       bus.close();
-      System.out.println("Daisy Daisy, give me your answer do. I'm half crazy, all for the love of you.");
+      System.out.println("Daisy, Daisy, give me your answer do. I'm half crazy, all for the love of you.");
     }
   }
   ));
@@ -407,19 +426,25 @@ void addShutdownHook () {
 
 
 void draw() {
-  if (frameCount == 1) {
-    long end = millis()-start;
-    ps.delay(end);
-    bs.delay(end);
-    println(end + "ms elapsed");
-  }
+  background(0);
+  image(map, canvas.x, canvas.y, canvas.width, canvas.height);
 
-  background(2, 2, 15);
   blendMode(ADD);
   smooth(8);
-  noFill();
-  rect(canvas.x, canvas.y, canvas.width, canvas.height);
+  
+  
 
+  ps.run();
+  bs.run();
+  
+  noFill();
+  noStroke();
+  fill(5, 5, 15);
+  textFont(fontLight, 25);
+  textAlign(CENTER, BOTTOM);
+  text(labelThread.getCurrentLabel(), canvas.width/2, canvas.height-30);
+
+  
   // Start only
   float endFrame = (frameRate*(INTRO_LIFETIME/1000)/2);
   if (frameCount < endFrame) {
@@ -429,19 +454,43 @@ void draw() {
     textAlign(CENTER, CENTER);
     text("The Poseidon Ensemble", width/2, height/2);
   }
-  else {
-    ps.run();
-    bs.run();
-  }
 
-  fill(230);
-  textFont(fontLight, 48);
-  textAlign(LEFT, TOP);
-  text(labelThread.getCurrentLabel(), canvas.x, 50);
-  
+  ps.run();
+  bs.run();
+
   if (saveFrames) {
     saveFrame("frameGrabs/frame-########.tga");
   }
+  
+  if (DEBUG) {
+    debug(); 
+  }
 }
 
+void keyPressed() {
+  if (key == 'd') {
+    DEBUG = !DEBUG;
+  }
+  
+  if (Character.isDigit(key)) {
+    CHANNEL_ISOLATION = !CHANNEL_ISOLATION;
+    CHANNEL_ISOLATED = Character.digit(key, 10);
+  }
+}
 
+void debug() {
+  fill(5, 5, 15);
+  textAlign(RIGHT, TOP);
+  text(round(frameRate)+"fps", canvas.x+canvas.width-20, 20);
+  
+  for ( Rectangle rectangle : grid) {
+    noFill();
+    stroke(255, 50);
+    rect(map(rectangle.x, 0, 90, 0, width/4), map(rectangle.y, 0, 90, 0, height/2), map(rectangle.width, 0, 90, 0, width/4), map(rectangle.height, 0, 90, 0, height/2));
+    fill(255, 125);
+    noStroke();
+    textFont(fontLight, 28);
+    textAlign(LEFT, TOP);
+    text("Channel " + (grid.indexOf(rectangle)), map(rectangle.x, 0, 90, 0, width/4)+20, map(rectangle.y, 0, 90, 0, height/2)+20);
+  }
+}

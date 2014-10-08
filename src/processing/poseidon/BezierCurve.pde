@@ -1,11 +1,13 @@
 public class BezierCurve {
   PVector a, b, m;
   long lifespan;
+  long currentLifespan;
   boolean isStarted = false;
   color fill;
-  int opacity;
+  float opacity;
   long delay;
   float progress;
+  long timeOffset;
   
   BezierCurve(PVector a, PVector b) {
     this.a = a;
@@ -13,9 +15,14 @@ public class BezierCurve {
     this.progress = 0;
   }
   
+  boolean canStart() { 
+   return (millis() > delay+timeOffset); 
+  }
+  
   void run() {
-    if (millis() > delay) {
+    if (canStart()) {
       if (!isStarted) {
+        currentLifespan = lifespan;
         isStarted = true;
       }
       display();
@@ -27,7 +34,7 @@ public class BezierCurve {
     PVector p = PVector.sub(a, b);
     PVector n = new PVector(-p.y, p.x);
     
-    int l = (int)Math.sqrt((n.x*n.x)+(n.y*n.y));
+    int l = int(sqrt((n.x*n.x)+(n.y*n.y)));
     n.x /= l;
     n.y /= l;
     
@@ -35,8 +42,8 @@ public class BezierCurve {
     
 
     float t = 0.1;
-    float d1 = (float)Math.sqrt(Math.pow(m.x-a.x, 2) + Math.pow(m.y-a.y, 2));
-    float d2 = (float)Math.sqrt(Math.pow(b.x-m.x, 2) + Math.pow(b.y-m.y, 2));
+    float d1 = sqrt(pow(m.x-a.x, 2) + pow(m.y-a.y, 2));
+    float d2 = sqrt(pow(b.x-m.x, 2) + pow(b.y-m.y, 2));
     
     float fa = t*d1/(d1+d2);
     float fb = t*d2/(d1+d2);
@@ -46,16 +53,17 @@ public class BezierCurve {
     
     
     noFill();
-    stroke(fill, opacity);
+    
+    stroke(fill, map(currentLifespan, 0, lifespan, 0, opacity));
     bezier(a.x, a.y, c.x, c.y, d.x, d.y, b.x, b.y);
     
-    lifespan -= (1000/frameRate);
+    currentLifespan -= (1000/frameRate);
   }
   
   
   
   boolean isDead() {
-    if (lifespan < 0.0) {
+    if (isStarted && currentLifespan < 0.0) {
       return true;
     } else {
       return false;

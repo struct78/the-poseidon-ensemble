@@ -3,30 +3,35 @@ public class Particle  {
   Point offset;
   color fill;
   int radius;
-  int opacity;
-  int count;
-  int totalKeyframes;
-  int keyframes;
+  float opacity;
   boolean expanding = true;
   long delay;
-  int x;
-  int currentRadius;
+  int x = 0;
+  int currentRadius = 0;
   long lifespan;
+  long currentLifespan;
   boolean isStarted = false;
+  long timeOffset;
   
  
   Particle(Point loc, Point off, int rad) {
     location = loc;
     offset = off;
     radius = rad;
-    currentRadius = rad/2;
-    count = 0;
-    x = 0;
   }
- 
+  
+  PVector getVector() {
+    return new PVector(location.x+offset.x, location.y+offset.y); 
+  }
+  
+  boolean canStart() { 
+   return (millis() > delay+timeOffset); 
+  }
+  
   void run() {
-    if (millis() > delay) {
+    if (canStart()) {
       if (!isStarted) {
+        currentLifespan = lifespan;
         isStarted = true;
       }
       update();
@@ -35,40 +40,40 @@ public class Particle  {
   }
   
   void update() {
-    if (x < totalKeyframes) {
-      if (expanding) {
-        currentRadius += (radius/keyframes);
-      }
-      else {
-        currentRadius -= (radius/keyframes);
+    if (x < (radius/2)) {
+      if (currentRadius >= radius || currentRadius < 0) {
+        expanding = !expanding;
+        if (!expanding) {
+          x++;
+        }
       }
       
-      if (count > keyframes) {
-        expanding = !expanding;
-        count = 0;
+      if (expanding) {
+        currentRadius+=(radius*0.1);
       }
-      count++; 
-      x++; 
+      else {
+        currentRadius-=(radius*0.1);
+      }
     }
-    lifespan -= (1000/frameRate);
+    currentLifespan -= (1000/frameRate);
   }
   
   void display() {
     translate(0, 0);
     ellipseMode(CENTER);
     
-    if (lifespan < 1000) {
-      this.opacity /= 1.5;  
-    }
-    
-    fill(this.fill, this.opacity);
-    ellipse((int)location.x+offset.x, (int)location.y+offset.y, 1, 1);
-    ellipse((int)location.x+offset.x, (int)location.y+offset.y, 2, 2);
-    ellipse((int)location.x+offset.x, (int)location.y+offset.y, currentRadius, currentRadius);
+    PVector v = getVector();
+    noStroke();
+    fill(fill, map(currentLifespan, 0, lifespan, 0, opacity));
+    ellipse(v.x, v.y, 1, 1);
+    ellipse(v.x, v.y, 2, 2);
+    ellipse(v.x, v.y, 3, 3);
+    ellipse(v.x, v.y, 4, 4);
+    ellipse(v.x, v.y, currentRadius, currentRadius);
   }
   
   boolean isDead() {
-    if (lifespan < 0.0) {
+    if (isStarted && currentLifespan < 0) {
       return true;
     } else {
       return false;

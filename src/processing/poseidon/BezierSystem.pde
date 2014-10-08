@@ -1,29 +1,33 @@
 class BezierCurveSystem {
-  ArrayList<BezierCurve> BezierCurves;
+  ArrayList<BezierCurve> beziers;
   PShape group;
   
   BezierCurveSystem() {
-    BezierCurves = new ArrayList<BezierCurve>();
+    beziers = new ArrayList<BezierCurve>();
   }
 
-  void addBezierCurve(BezierCurve BezierCurve) {
-    BezierCurves.add(BezierCurve);
+  void addBezierCurve(BezierCurve bezier) {
+    beziers.add(bezier);
   }
   
   void run() {
-    for (int i = BezierCurves.size()-1; i >= 0; i--) {
-      BezierCurve p = BezierCurves.get(i);
-      p.run(); 
-      
-      if (p.isDead()) {
-        BezierCurves.remove(i);
+    for (int i = beziers.size()-1; i >= 0; i--) {
+      BezierCurve b = beziers.get(i);
+      if (!b.canStart())
+        return;
+        
+      if (b.isDead()) {
+        beziers.remove(i);
+      }
+      else {
+        b.run(); 
       }
     }
   }
   
   void delay(long delay) {
-    for (int i = BezierCurves.size()-1; i >= 0; i--) {
-      BezierCurve b = BezierCurves.get(i);
+    for (int i = beziers.size()-1; i >= 0; i--) {
+      BezierCurve b = beziers.get(i);
       b.delay += delay;
     }
   }

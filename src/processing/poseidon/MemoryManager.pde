@@ -4,7 +4,7 @@ public class MemoryManager {
   } 
   
   void draw() {
-   if (millis()%5000==0) {
+   if (millis()%10==0) {
      System.gc(); 
    } 
   }

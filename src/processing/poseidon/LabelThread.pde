@@ -10,7 +10,9 @@ public class LabelThread extends Thread {
     try {
      for ( Label l : labels ) {
       label = l.date;
-      Thread.sleep(l.delay);
+      if (l.delay>1) {
+        Thread.sleep(l.delay);
+      }
      }
     }
     catch(Exception e){

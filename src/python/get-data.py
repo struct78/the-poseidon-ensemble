@@ -1,6 +1,8 @@
 import os
 import urllib
 import datetime
+import csv
+import unicodecsv
 
 def daterange(start, stop, step_days=1):
     current = start
@@ -24,7 +26,7 @@ DOWNLOADS_DIR = './cache'
 url = "http://comcat.cr.usgs.gov/fdsnws/event/1/query?starttime={0}%2000:00:00&minmagnitude=0.1&format=csv&endtime={1}%2023:59:59&maxmagnitude=10&orderby=time-asc"
 
 startRange = datetime.date(1900, 1, 1)
-endRange = datetime.date(2014, 12, 31)
+endRange = datetime.datetime.now().date()
 
 for i in daterange(startRange, endRange, step):
 	start = i.strftime(date_format)
@@ -37,3 +39,24 @@ for i in daterange(startRange, endRange, step):
 			print ("Downloading results for " + start + " to " + end)
 	except:
 		print ("Could not download for " + start + " to " + end)
+		
+		
+		
+
+with open('merged.csv', 'wb') as result:
+	a = unicodecsv.writer(result, encoding='utf-8')
+	i = 0
+	result.write("time,latitude,longitude,depth,mag,type\n") 
+	
+	for i in daterange(startRange, endRange, step):
+		start = i.strftime(date_format)
+		end = (i+datetime.timedelta(days=step-1)).strftime(date_format)
+		query = os.path.join(DOWNLOADS_DIR, start + "_" + end + ".csv")
+		
+		
+		with open(query, "rb") as source:
+			rdr = csv.reader( source )
+			wtr = csv.writer( result )
+			next(rdr)
+			for row in rdr:
+				wtr.writerow( (row[0], row[1], row[2], row[3], row[4], row[14]) ) 

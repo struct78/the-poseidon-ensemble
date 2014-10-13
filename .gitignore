@@ -4,3 +4,4 @@ Samples/*
 Icon*
 *.db
 *.db-journal
+src/python/cache

@@ -1,5 +1,6 @@
 public class LabelThread extends Thread {
    String label = "";
+   Date date;
    ArrayList<Label> labels;
    
    LabelThread(ArrayList<Label> labels) {
@@ -9,7 +10,8 @@ public class LabelThread extends Thread {
    void run() {
     try {
      for ( Label l : labels ) {
-      label = l.date;
+      date = l.date;
+      label = l.format.format(date);
       if (l.delay>1) {
         Thread.sleep(l.delay);
       }
@@ -20,7 +22,11 @@ public class LabelThread extends Thread {
     }
    }
   
-   String getCurrentLabel() {
-     return label;
-   } 
+  String getCurrentLabel() {
+    return label;
+  } 
+  
+  Date getDate() {
+    return date;
+  }
 }

@@ -1,32 +1,9 @@
-public class BezierCurve {
+public class Bezier extends Shape {
   PVector a, b, m;
-  long lifespan;
-  long currentLifespan;
-  boolean isStarted = false;
-  color fill;
-  float opacity;
-  long delay;
-  float progress;
-  long timeOffset;
   
-  BezierCurve(PVector a, PVector b) {
+  Bezier(PVector a, PVector b) {
     this.a = a;
     this.b = b;
-    this.progress = 0;
-  }
-  
-  boolean canStart() { 
-   return (millis() > delay+timeOffset); 
-  }
-  
-  void run() {
-    if (canStart()) {
-      if (!isStarted) {
-        currentLifespan = lifespan;
-        isStarted = true;
-      }
-      display();
-    }
   }
   
   void display() {
@@ -53,20 +30,24 @@ public class BezierCurve {
     
     
     noFill();
-    
-    stroke(fill, map(currentLifespan, 0, lifespan, 0, opacity));
+    stroke(fill, opacity);
     bezier(a.x, a.y, c.x, c.y, d.x, d.y, b.x, b.y);
     
     currentLifespan -= (1000/frameRate);
+    
+    if (kill) {
+      opacity--;
+    }
   }
-  
-  
-  
+    
   boolean isDead() {
-    if (isStarted && currentLifespan < 0.0) {
+    if (isStarted && kill && opacity <= 0) {
       return true;
     } else {
       return false;
     }
   }
+}
+
+class BezierCollection extends ShapeCollection {
 }

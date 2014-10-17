@@ -1,7 +1,7 @@
 import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.*;
+import java.util.Collections;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
@@ -13,20 +13,17 @@ import themidibus.*;
 import javax.sound.midi.*;
 
 // TODO
-// Check size of TV
-// Dashed/dotted lines on bezier curves
-// Improve design/create fonts
-// Look into randomising appregator
-// Put border around map?
-// Adjust vibraphone scale
-// Move double bass/bassoon to channel 3?
+// Create repeat function
+// Add pause feature
+// Smooth timer?
+// Test on loud speakers
 
 /* 
 ==================================
 INSTRUMENT LIST
 ==================================
    Channel 1: Piano (Pacific ocean. Bottom row, first square)
-   Channel 2: Tuba/Trombone (Alaska. Top row, first square)
+   Channel 2: Double Bass Section Pizzicato/Cello Section Pizzicato (Alaska. Top row, first square)
    Channel 3: Cello/Violin/Double Bass section (South America. Bottom row, second square)
    Channel 4: Double Bass Section (North America/Greenland. Top row, second square)
    Channel 5: Clarinet/Flute (Southern Africa. Bottom row, third square)
@@ -42,31 +39,37 @@ boolean DEBUG = false;
 int FPS = 60;
 
 // Display Mode
-DisplayMode DISPLAY_MODE = DisplayMode.RETINA;
-
-// Time compression
-int SPEED = 2000;
+DisplayMode DISPLAY_MODE = DisplayMode.BACKLIT_TV;
 
 // Approximate time to parse CSV file (milliseconds)
-int START_OFFSET = 15000;
+int START_OFFSET = 25000;
 
-// How long circle/bezier should live for in days
-int CIRCLE_LIFETIME = 2;
+// How many channels are open
+int NUM_CHANNELS = 13;
+
+// Padding
+int PADDING = 40;
+
+// Start date offset
+Calendar startDate = new GregorianCalendar(2004, 11, 26, 0, 0, 0);
+
+// End date
+Calendar endDate = new GregorianCalendar(2014, 9, 14, 23, 59, 59);
 
 // Introduction length
 int INTRO_LIFETIME = 5000;
 
-// Lowest opacity for circles/bezier
-int OPACITY_FLOOR = 40;
+// Lowest opacity for markers/bezier
+int OPACITY_FLOOR = 50;
 
-// Highest opacity for circles/bezier
-int OPACITY_CEILING = 90;
+// Highest opacity for markers/bezier
+int OPACITY_CEILING = 100;
 
 // Note scale factor
 int SCALE_FACTOR = 10;
 
-// Radius = magnitude^CIRCLE_SCALE_FACTOR
-float CIRCLE_SCALE_FACTOR = 1.8;
+// Diameter = magnitude^MARKER_SCALE_FACTOR/5
+float MARKER_FACTOR = 5;
 
 // Minimum pitch
 int PITCH_MIN = 35;
@@ -75,37 +78,35 @@ int PITCH_MIN = 35;
 int PITCH_MAX = 80;
 
 // Minimum velocity
-int VELOCITY_MIN = 30;
+int VELOCITY_MIN = 10;
 
 // Maximum velocity
 int VELOCITY_MAX = 127;
 
 // Minimum note duration in milliseconds
-int NOTE_MIN = 40;
+int NOTE_MIN = 25;
 
 // Maximum note duration in milliseconds
-int NOTE_MAX = 90;
+int NOTE_MAX = 125;
 
-// Channel isolation
-boolean CHANNEL_ISOLATION = false;
+// Save out frames when recording
+boolean SAVE_FRAMES = false;
 
-// Channel to isolate
-int CHANNEL_ISOLATED = 1;
+// Full screen presentation
+boolean IS_FULLSCREEN = true;
 
-/* 
- Database of seismic events
- quakes.csv = 110 years worth of data
- quakes-2014.csv = 1 year worth of data
- quakes-sample.csv = 3 seismic events
- */
+// Just visuals
+boolean NO_AUDIO = false;
+
+// Database of seismic events
 String QUAKES_CSV = "quakes.csv";
 
-// Start date offset
-Calendar startDate = new GregorianCalendar(2002, 3, 19);
+// Default amount of shapes visible
+int MAX_SHAPES = 200;
 
-boolean isFullScreen = true;
-boolean visualsOnly = false;
-boolean saveFrames = false;
+// Font size
+int FONT_SIZE = 30;
+
 int width;
 int height;
 
@@ -116,16 +117,16 @@ String dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS";
 String dateFormatLabel = "d MMMM, yyyy";
 Date d1, d2;
 
-String date, previousDate, type;
+String date, previousDate;
 SimpleDateFormat format = new SimpleDateFormat(dateFormat);
 SimpleDateFormat simpleFormat = new SimpleDateFormat(dateFormatLabel);
 
 Timer timer = new Timer();
-long start, delay, elapsed, graphicsDelay = 0;
+long start, delay, timeOffset;
 
 // CSV
 double latitude, longitude;
-float depth, magnitude;
+float depth, magnitude, rms;
 
 QuakeTask task;
 Note note;
@@ -137,28 +138,29 @@ ArrayList<Rectangle> grid = new ArrayList();
 ArrayList<Integer> colours = new ArrayList();
 ArrayList<Label> labels = new ArrayList();
 
-Particle circle;
-ParticleSystem ps;
-BezierCurveSystem bs;
+TempoCollection timekeeper;
+Marker marker;
+MarkerSystem ms;
+BezierCollection bs;
 Rectangle canvas;
 
-PFont fontBold;
-PFont fontLight;
+PFont font;
+PFont fontSmall;
 PImage map;
-
+color fontColor;
 
 void setup() {
   width = displayWidth;
   height = displayHeight;
   frameRate(FPS);
 
-  size(width, height, P3D);
+  size(width, height, P2D);
 
-  //canvas = new Rectangle(50, 100, width-100, height-150);
-  canvas = new Rectangle(20, 20, width-40, height-40);
-  fontBold = loadFont("BebasNeueBold-48.vlw");
-  fontLight = loadFont("BebasNeueLight-48.vlw");
-  map = loadImage("map-low-res.jpg");
+  fontColor = color(255);
+  canvas = new Rectangle(PADDING/2, PADDING/2, width-PADDING, height-PADDING);
+  font = loadFont("BebasNeueLight-48.vlw");
+  fontSmall = loadFont("BebasNeueLight-30.vlw");
+  map = loadImage("map-" + DISPLAY_MODE.name().toLowerCase() + ".jpg");
 
   // Colours are seasonal
   // Left -> Right = January - December
@@ -168,9 +170,20 @@ void setup() {
   // We start after 5 seconds
   delay = START_OFFSET;
 
-  // Create the particle system
-  ps = new ParticleSystem();
-  bs = new BezierCurveSystem();
+
+  // Create the Time Keeper
+  timekeeper = new TempoCollection();
+  timekeeper.add(new Tempo(0,     1939,    500000,    20));
+  timekeeper.add(new Tempo(1940,  1959,    250000,    30));
+  timekeeper.add(new Tempo(1960,  1972,    100000,    60));
+  timekeeper.add(new Tempo(1973,  1989,    10000,     70));
+  timekeeper.add(new Tempo(1990,  1999,    5000,      80));
+  timekeeper.add(new Tempo(2000,  2009,    1250,      150));
+  timekeeper.add(new Tempo(2010,  Calendar.getInstance().get(Calendar.YEAR), 500, 300));
+  
+  // Create the marker system
+  ms = new MarkerSystem();
+  bs = new BezierCollection();
 
   for (int x = 0 ; x < 360; x += 90) {
     for (int y = 0 ; y < 180 ; y += 90) {
@@ -186,8 +199,10 @@ void setup() {
 
   // Start timestamp
   start = millis();
+  
+  // Create the MIDI Bus
   bus = new MidiBus(this, -1, "Poseidon");
-
+  
   for (TableRow row : table.rows ()) {
     // Extract the data
     date = row.getString("time");
@@ -195,7 +210,7 @@ void setup() {
     longitude = row.getDouble("longitude");
     depth = row.getFloat("depth");
     magnitude = row.getFloat("mag");
-    type = row.getString("type");
+    rms = row.getFloat("rms");
 
     // On the first iteration previousDate will be null
     if (previousDate == null) {
@@ -207,15 +222,19 @@ void setup() {
       d2 = format.parse(date);
 
       // If the date is before the start time we want then skip to the next iteration
-      if (d2.after(startDate.getTime())) {
-
+      if (d2.after(startDate.getTime()) && d2.before(endDate.getTime())) {
+        int speed = timekeeper.getSpeed(d2);
+        
         // Diff in milliseconds
         long diff = d2.getTime() - d1.getTime();
 
         // Increase the delay
-        //delay += ((diff/SPEED) + ((millis()-start)/1000));
-        delay += (diff/SPEED);
-
+        delay += (diff/speed);
+        
+        if (x == 0 ) {
+          timeOffset = delay; 
+        }
+        
         // Create the note
         note = new Note(bus);
         // Each instrument/section represents 1/8th of the globe
@@ -227,79 +246,98 @@ void setup() {
         // How long the note is played for, on some instruments this makes no difference
         note.duration = mapMagnitudeToLength(magnitude);
   
-        if (CHANNEL_ISOLATION) {
-          if (note.channel!=CHANNEL_ISOLATED) {
-            delay -= (diff/SPEED);
-            continue;
-          }
-        }
-  
-        if (!visualsOnly) {
+        if (!NO_AUDIO) {
           // Add the note to task schedule
           task = new QuakeTask(note);
           timer.schedule(task, delay);
         }
 
         // Drawing task
-        // This draws a circle where the earthquake originated from
-
-        Point point = MercatorProjection.CoordinatesToPoint(canvas.width, canvas.height, latitude, longitude);
+        // This draws a marker where the earthquake originated from
+        PVector point = Geography.CoordinatesToPVector(canvas.width, canvas.height, latitude, longitude);
 
         // Get the colour from the month
         color fill = getColourFromMonth(d2.getMonth());
-        Point offset = new Point(canvas.x, canvas.y);
+        PVector offset = new PVector(canvas.x, canvas.y);
 
-        // Exponential radius
-        int radius = abs(int(pow(magnitude, CIRCLE_SCALE_FACTOR)));
-
-        // Create the particle
-        circle = new Particle(point, offset, radius);
+        // Exponential diameter
+        float diameter = abs(pow(map(magnitude, 0, 10, 1, 2.5), MARKER_FACTOR));
+        
+        // Create the marker
+        marker = new Marker(point, offset, diameter);
         // Colour
-        circle.fill = fill;
+        marker.fill = fill;
         // Opacity is determined by depth. Lower = less opaque.
-        circle.opacity = mapDepth(depth, int(OPACITY_CEILING*DISPLAY_MODE.get()), int(OPACITY_FLOOR*DISPLAY_MODE.get()));
-        // When the circle appears
-        circle.delay = delay;
+        marker.opacity = mapDepth(depth, OPACITY_CEILING, OPACITY_FLOOR  );
+        // When the marker appears
+        marker.delay = delay;
         // Time offset
-        circle.timeOffset = millis();
-        // How long the circle lives for before being removed
-        circle.lifespan = ((1000*60*60*24)*CIRCLE_LIFETIME)/SPEED;
+        marker.timeOffset = millis();
 
-        // Add the particle to the particle system
-        ps.addParticle(circle);
+        // Add the marker to the marker system
+        ms.addShape(marker);
 
 
         if (x > 0) {
           previousRow = table.getRow(y-1);
-          Point previousPoint = MercatorProjection.CoordinatesToPoint(canvas.width, canvas.height, previousRow.getDouble("latitude"), previousRow.getDouble("longitude"));
+          PVector previousPoint = Geography.CoordinatesToPVector(canvas.width, canvas.height, previousRow.getDouble("latitude"), previousRow.getDouble("longitude"));
 
-          BezierCurve curve = new BezierCurve(new PVector(point.x+offset.x, point.y+offset.y), new PVector(previousPoint.x+offset.x, previousPoint.y+offset.y));
-          curve.fill = circle.fill;
+          Bezier curve = new Bezier(new PVector(point.x+offset.x, point.y+offset.y), new PVector(previousPoint.x+offset.x, previousPoint.y+offset.y));
+          curve.fill = marker.fill;
           curve.opacity = int((OPACITY_FLOOR/2)*DISPLAY_MODE.get());
-          curve.lifespan = circle.lifespan;
-          curve.delay = circle.delay;
+          curve.delay = marker.delay;
+          curve.diameter = marker.diameter;
           curve.timeOffset = millis();
-          bs.addBezierCurve(curve);
+          bs.addShape(curve);
         }
 
         x++;
 
-        label = new Label(simpleFormat.format(d2).toString(), (diff/SPEED));
+        label = new Label(simpleFormat, d2, (diff/speed));
         labels.add(label);
 
 
         // Major/Great earthquakes
-        // Kettle Drum
-        // Tuba
-        // Drone
-        if (magnitude >= 6) {
+        // Tubas
+        if (magnitude >= 7) {
           note = new Note(bus);
           note.channel = 8;
+          note.velocity = mapMagnitude(magnitude);
+          note.pitch = mapDepth(depth); 
+          note.duration = 1000;
+
+          if (!NO_AUDIO) {
+            task = new QuakeTask(note);
+            timer.schedule(task, delay);
+          }
+        }
+        
+        // Major/Great earthquakes
+        // Kettle Drum
+        // Drone
+        // Tuba
+        // French Horn
+        // Trombone
+        
+        if (magnitude >= 8) {
+          note = new Note(bus);
+          note.channel = 9;
           note.velocity = 127;
           note.pitch = 36;
           note.duration = 200;
 
-          if (!visualsOnly) {
+          if (!NO_AUDIO) {
+            task = new QuakeTask(note);
+            timer.schedule(task, delay);
+          }
+          
+          note = new Note(bus);
+          note.channel = 9;
+          note.velocity = 127;
+          note.pitch = 56;
+          note.duration = 200;
+
+          if (!NO_AUDIO) {
             task = new QuakeTask(note);
             timer.schedule(task, delay);
           }
@@ -307,25 +345,47 @@ void setup() {
         
         
         // Small earthquakes
-        if (magnitude <= 2) {
+        if (magnitude <= 1) {
           note = new Note(bus);
-          note.channel = 9;
+          note.channel = 10;
           note.velocity = mapMagnitude(magnitude);
           note.pitch = mapDepth(depth); 
           note.duration = mapMagnitudeToLength(magnitude);
 
-          if (!visualsOnly) {
+          if (!NO_AUDIO) {
             task = new QuakeTask(note);
-            timer.schedule(task, delay+500);
+            timer.schedule(task, delay+250);
+          }
+        }
+        
+        // Low RMS (root-mean-square)
+        if (rms < 0.01) { 
+          note = new Note(bus);
+          note.channel = 11;
+          note.velocity = mapMagnitude(magnitude);
+          note.pitch = mapDepth(depth); 
+          note.duration = 2000;
+
+          if (!NO_AUDIO) {
+            task = new QuakeTask(note);
+            timer.schedule(task, delay-500);
+          }
+        }
+        
+        // Big RMS (root-mean-square)
+        if (rms > HALF_PI) { 
+          note = new Note(bus);
+          note.channel = 12;
+          note.velocity = mapMagnitude(magnitude);
+          note.pitch = mapDepth(depth); 
+          note.duration = 1000;
+
+          if (!NO_AUDIO) {
+            task = new QuakeTask(note);
+            timer.schedule(task, delay-500);
           }
         }
       }
-      // TODO??
-      //mining_explosion
-      //explosion
-      //landslide
-      //quarry
-      //rock_burst
     }
     catch(Exception e) {
       println(e);
@@ -336,26 +396,107 @@ void setup() {
   }
 
   // This is important!
-  // If you don't reverse the particle and bezier systems, performance will be seriously degraded
+  // If you don't reverse the marker and bezier systems, performance will be seriously degraded
   // Each system bails out of the run() method called in draw() below if elements aren't ready to animate yet
   // instead of unnecessarily iterating through elements that won't be displayed on screen
-  Collections.reverse(ps.particles);
-  Collections.reverse(bs.beziers);
-
-  labelThread = new LabelThread(labels);
-  task = new QuakeTask(labelThread);
-  timer.schedule(task, START_OFFSET-(millis()-start));
-
-  addShutdownHook();
-  //memory();
-
-  table = null;
-  println("Estimated song length: " + delay/100/60 + " minutes");
-
+  Collections.reverse(ms.shapes);
+  Collections.reverse(bs.shapes);
 
   long end = millis();
+  
+  labelThread = new LabelThread(labels);
+  task = new QuakeTask(labelThread);
+  
+  println("START OFFSET: " + START_OFFSET);
+  println("END: " + end);
+  println("START: " + start);
+  
+  timer.schedule(task, START_OFFSET-(end-start));
+
+  addShutdownHook();
+  
+  println("Estimated song length: " + delay/1000/60 + " minutes // " + delay/1000/60/60 + " hours // " + delay/1000/60/60/24 + " days");
   println("Setup lasted " + end + "ms");
 }
+
+
+void draw() {
+  noCursor();
+  background(0);
+  
+  blendMode(ADD);
+  smooth(8);
+  
+  
+  
+  if (DEBUG) {
+    debug(); 
+  }
+  
+  // Run the marker/bezier systems
+  if (labelThread.getDate() != null) {
+    MAX_SHAPES = timekeeper.getMaxObjects(labelThread.getDate());
+  }
+  
+  bs.run();
+  ms.run();
+  
+  // Intro frames
+  float endFrame = (frameRate*(INTRO_LIFETIME/1000));
+  if (frameCount < endFrame) {
+    fill(255, map(frameCount, 0, (endFrame/2), 0, 255));
+    noStroke();
+    textFont(font, 48);
+    textAlign(CENTER, CENTER);
+    text("The Poseidon Ensemble", width/2, height/2);
+  }
+  else {
+    // Draw the date    
+    image(map, canvas.x, canvas.y, canvas.width, canvas.height);
+    noFill();
+    noStroke();
+    fill(fontColor);
+    textFont(fontSmall, FONT_SIZE);
+    textAlign(RIGHT, TOP);
+    text(labelThread.getCurrentLabel(), canvas.width+canvas.x-(PADDING/2), canvas.y+(PADDING/2));
+    
+    
+    // Poseidon Ensemble label
+    textFont(fontSmall, FONT_SIZE);
+    textAlign(LEFT, TOP);
+    text("THE POSEIDON ENSEMBLE", canvas.x+(PADDING/2), canvas.y+(PADDING/2));
+  }
+  
+  // If we're saving frames, same them to the frameGrabs folder
+  if (SAVE_FRAMES) {
+    saveFrame("frameGrabs/frame-########.tga");
+  }
+}
+
+void keyPressed() {
+  if (key == 'd') {
+    DEBUG = !DEBUG;
+  }
+}
+
+void debug() {
+  fill(fontColor);
+  textAlign(RIGHT, TOP);
+  text(round(frameRate)+"fps", canvas.x+canvas.width-PADDING, PADDING);
+  text("Objects on screen: " + (ms.numRendered+bs.numRendered), canvas.x+canvas.width-PADDING, PADDING*2);
+  
+  for ( Rectangle rectangle : grid) {
+    noFill();
+    stroke(fontColor);
+    rect(map(rectangle.x, 0, 90, 0, width/4), map(rectangle.y, 0, 90, 0, height/2), map(rectangle.width, 0, 90, 0, width/4), map(rectangle.height, 0, 90, 0, height/2));
+    fill(fontColor);
+    noStroke();
+    textAlign(LEFT, TOP);
+    text("Channel " + (grid.indexOf(rectangle)), map(rectangle.x, 0, 90, 0, width/4)+20, map(rectangle.y, 0, 90, 0, height/2)+20);
+  }
+}
+
+
 
 
 int getChannelFromCoordinates(double latitude, double longitude) {
@@ -378,7 +519,7 @@ color getColourFromMonth(int month) {
 }
 
 boolean sketchFullScreen() {
-  return isFullScreen;
+  return IS_FULLSCREEN;
 }
 
 int mapDepth(float depth) {
@@ -405,15 +546,11 @@ int invert(int n, int min, int max) {
   return (max-n)+min;
 }
 
-void memory() {
-  MemoryManager mem = new MemoryManager();
-}
-
 void addShutdownHook () {
   Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
     public void run () {
       System.out.println("Shutting Down");
-      for (int x = 0; x < 10; x++) {
+      for (int x = 0; x < NUM_CHANNELS; x++) {
         bus.sendMessage(ShortMessage.CONTROL_CHANGE, x, 0x7B, 0);
       }
 
@@ -422,75 +559,4 @@ void addShutdownHook () {
     }
   }
   ));
-}
-
-
-void draw() {
-  background(0);
-  image(map, canvas.x, canvas.y, canvas.width, canvas.height);
-
-  blendMode(ADD);
-  smooth(8);
-  
-  
-
-  ps.run();
-  bs.run();
-  
-  noFill();
-  noStroke();
-  fill(5, 5, 15);
-  textFont(fontLight, 25);
-  textAlign(CENTER, BOTTOM);
-  text(labelThread.getCurrentLabel(), canvas.width/2, canvas.height-30);
-
-  
-  // Start only
-  float endFrame = (frameRate*(INTRO_LIFETIME/1000)/2);
-  if (frameCount < endFrame) {
-    fill(255, map(frameCount, 0, (endFrame/2), 0, 255));
-    noStroke();
-    textFont(fontLight, 48);
-    textAlign(CENTER, CENTER);
-    text("The Poseidon Ensemble", width/2, height/2);
-  }
-
-  ps.run();
-  bs.run();
-
-  if (saveFrames) {
-    saveFrame("frameGrabs/frame-########.tga");
-  }
-  
-  if (DEBUG) {
-    debug(); 
-  }
-}
-
-void keyPressed() {
-  if (key == 'd') {
-    DEBUG = !DEBUG;
-  }
-  
-  if (Character.isDigit(key)) {
-    CHANNEL_ISOLATION = !CHANNEL_ISOLATION;
-    CHANNEL_ISOLATED = Character.digit(key, 10);
-  }
-}
-
-void debug() {
-  fill(5, 5, 15);
-  textAlign(RIGHT, TOP);
-  text(round(frameRate)+"fps", canvas.x+canvas.width-20, 20);
-  
-  for ( Rectangle rectangle : grid) {
-    noFill();
-    stroke(255, 50);
-    rect(map(rectangle.x, 0, 90, 0, width/4), map(rectangle.y, 0, 90, 0, height/2), map(rectangle.width, 0, 90, 0, width/4), map(rectangle.height, 0, 90, 0, height/2));
-    fill(255, 125);
-    noStroke();
-    textFont(fontLight, 28);
-    textAlign(LEFT, TOP);
-    text("Channel " + (grid.indexOf(rectangle)), map(rectangle.x, 0, 90, 0, width/4)+20, map(rectangle.y, 0, 90, 0, height/2)+20);
-  }
 }

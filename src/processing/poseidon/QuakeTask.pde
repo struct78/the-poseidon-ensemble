@@ -1,7 +1,7 @@
 public class QuakeTask extends TimerTask { 
  Thread thread;
- QuakeTask(Thread t) {
-   this.thread = t;
+ QuakeTask(Thread thread) {
+   this.thread = thread;
  } 
  
  public void run() {

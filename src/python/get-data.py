@@ -46,7 +46,7 @@ for i in daterange(startRange, endRange, step):
 with open('../processing/poseidon/data/quakes.csv', 'wb') as result:
 	a = unicodecsv.writer(result, encoding='utf-8')
 	i = 0
-	result.write("time,latitude,longitude,depth,mag,rms\r\n") 
+	result.write("time,latitude,longitude,depth,mag,dmin,rms\r\n") 
 	
 	for i in daterange(startRange, endRange, step):
 		start = i.strftime(date_format)
@@ -59,4 +59,4 @@ with open('../processing/poseidon/data/quakes.csv', 'wb') as result:
 			wtr = csv.writer( result )
 			next(rdr)
 			for row in rdr:
-				wtr.writerow( (row[0], row[1], row[2], row[3], row[4], row[9]) ) 
+				wtr.writerow( (row[0], row[1], row[2], row[3], row[4], row[8], row[9]) ) 

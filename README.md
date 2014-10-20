@@ -38,7 +38,7 @@ bus = new MidiBus(this, -1, "Poseidon");
 
 ## Python
 
-Python scripts to download and merge all the seismic data from the [U.S. Geological Survey](http://earthquake.usgs.gov/earthquakes/search/) have been included. 
+A Python script to download and merge all the seismic data from the [U.S. Geological Survey](http://earthquake.usgs.gov/earthquakes/search/) has been included. 
 
 You can  manipulate the URL query string in get-data.py if you wish to filter the data further. You will need to look at the input names on the search page and adjust the URL accordingly: http://earthquake.usgs.gov/earthquakes/search/
 

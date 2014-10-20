@@ -60,5 +60,6 @@ To use the Ableton set provided, you will need [Ableton Live 9 Suite](https://ww
 * Orchestral Mallets
 * Orchestral Strings
 * Orchestral Woodwind
+* Samplification
 
 Or create your own live set!

@@ -13,23 +13,32 @@ import themidibus.*;
 import javax.sound.midi.*;
 
 // TODO
-// Create repeat function
-// Add pause feature
-// Smooth timer?
-// Test on loud speakers
+// Create pause feature
+// Create array list of previous n events 
+// Change label thread to be time worker
 
 /* 
 ==================================
 INSTRUMENT LIST
+1. Location triggered
 ==================================
-   Channel 1: Piano (Pacific ocean. Bottom row, first square)
+   Channel 1: Piano/Glass Clavi (Pacific ocean. Bottom row, first square)
    Channel 2: Double Bass Section Pizzicato/Cello Section Pizzicato (Alaska. Top row, first square)
    Channel 3: Cello/Violin/Double Bass section (South America. Bottom row, second square)
-   Channel 4: Double Bass Section (North America/Greenland. Top row, second square)
-   Channel 5: Clarinet/Flute (Southern Africa. Bottom row, third square)
+   Channel 4: Double Bass Section Pizzicato/String Ensemble (North America/Greenland. Top row, second square)
+   Channel 5: Bb Clarinet/Concert Flute Section (Southern Africa. Bottom row, third square)
    Channel 6: Vibraphone (Europe/Middle East. Top row, third square)
    Channel 7: Bassoon/Contrabassoon (Australia/New Zealand. Bottom row, fourth square)
    Channel 8: French Horn/Bass Trombone (China/Japan. Top row, fourth square.)
+   
+==================================
+2. Event triggered
+==================================
+   Channel 9: French Horn/Trumpet/Tuba (Earthquakes > 7.0)
+   Channel 10: Double Bass Section/French Horn/Tuba/Timpani (Earthquakes > 8.0)
+   Channel 11: Sandman Ambient Drone (Earthquakes <= 1.0)
+   Channel 12: All Alone Pad (Low RMS)
+   Channel 13: Chimes (High RMS)
 */
  
 // Debug flag. Hit 'd' key to enable.
@@ -39,10 +48,10 @@ boolean DEBUG = false;
 int FPS = 60;
 
 // Display Mode
-DisplayMode DISPLAY_MODE = DisplayMode.BACKLIT_TV;
+DisplayMode DISPLAY_MODE = DisplayMode.RETINA;
 
 // Approximate time to parse CSV file (milliseconds)
-int START_OFFSET = 25000;
+int START_OFFSET = 30000;
 
 // How many channels are open
 int NUM_CHANNELS = 13;
@@ -51,10 +60,10 @@ int NUM_CHANNELS = 13;
 int PADDING = 40;
 
 // Start date offset
-Calendar startDate = new GregorianCalendar(2004, 11, 26, 0, 0, 0);
+Calendar startDate = new GregorianCalendar(1900, 0, 1, 0, 0, 0);
 
 // End date
-Calendar endDate = new GregorianCalendar(2014, 9, 14, 23, 59, 59);
+Calendar endDate = new GregorianCalendar(2014, 9, 20, 23, 59, 59);
 
 // Introduction length
 int INTRO_LIFETIME = 5000;
@@ -107,8 +116,10 @@ int MAX_SHAPES = 200;
 // Font size
 int FONT_SIZE = 30;
 
-int width;
-int height;
+boolean isComplete = false;
+
+int width, height;
+int tint = 255;
 
 Table table;
 TableRow previousRow;
@@ -122,7 +133,7 @@ SimpleDateFormat format = new SimpleDateFormat(dateFormat);
 SimpleDateFormat simpleFormat = new SimpleDateFormat(dateFormatLabel);
 
 Timer timer = new Timer();
-long start, delay, timeOffset;
+long start, delay, timeOffset, lastIndex;
 
 // CSV
 double latitude, longitude;
@@ -152,8 +163,8 @@ color fontColor;
 void setup() {
   width = displayWidth;
   height = displayHeight;
+  
   frameRate(FPS);
-
   size(width, height, P2D);
 
   fontColor = color(255);
@@ -179,7 +190,7 @@ void setup() {
   timekeeper.add(new Tempo(1973,  1989,    10000,     70));
   timekeeper.add(new Tempo(1990,  1999,    5000,      80));
   timekeeper.add(new Tempo(2000,  2009,    1250,      150));
-  timekeeper.add(new Tempo(2010,  Calendar.getInstance().get(Calendar.YEAR), 500, 300));
+  timekeeper.add(new Tempo(2010,  Calendar.getInstance().get(Calendar.YEAR), 500, 225));
   
   // Create the marker system
   ms = new MarkerSystem();
@@ -231,7 +242,7 @@ void setup() {
         // Increase the delay
         delay += (diff/speed);
         
-        if (x == 0 ) {
+        if (x == 0) {
           timeOffset = delay; 
         }
         
@@ -245,7 +256,9 @@ void setup() {
         note.pitch = mapDepth(depth); 
         // How long the note is played for, on some instruments this makes no difference
         note.duration = mapMagnitudeToLength(magnitude);
-  
+        // Index
+        note.index = x;
+        
         if (!NO_AUDIO) {
           // Add the note to task schedule
           task = new QuakeTask(note);
@@ -268,7 +281,7 @@ void setup() {
         // Colour
         marker.fill = fill;
         // Opacity is determined by depth. Lower = less opaque.
-        marker.opacity = mapDepth(depth, OPACITY_CEILING, OPACITY_FLOOR  );
+        marker.opacity = mapDepth(depth, OPACITY_CEILING, OPACITY_FLOOR);
         // When the marker appears
         marker.delay = delay;
         // Time offset
@@ -276,7 +289,6 @@ void setup() {
 
         // Add the marker to the marker system
         ms.addShape(marker);
-
 
         if (x > 0) {
           previousRow = table.getRow(y-1);
@@ -290,13 +302,12 @@ void setup() {
           curve.timeOffset = millis();
           bs.addShape(curve);
         }
-
+        
         x++;
-
+        
         label = new Label(simpleFormat, d2, (diff/speed));
         labels.add(label);
-
-
+  
         // Major/Great earthquakes
         // Tubas
         if (magnitude >= 7) {
@@ -318,7 +329,6 @@ void setup() {
         // Tuba
         // French Horn
         // Trombone
-        
         if (magnitude >= 8) {
           note = new Note(bus);
           note.channel = 9;
@@ -348,13 +358,13 @@ void setup() {
         if (magnitude <= 1) {
           note = new Note(bus);
           note.channel = 10;
-          note.velocity = mapMagnitude(magnitude);
-          note.pitch = mapDepth(depth); 
-          note.duration = mapMagnitudeToLength(magnitude);
+          note.velocity = 255;
+          note.pitch = mapDepth(depth, 40, 80); 
+          note.duration = mapMagnitudeToLength(5000, magnitude);
 
           if (!NO_AUDIO) {
             task = new QuakeTask(note);
-            timer.schedule(task, delay+250);
+            timer.schedule(task, delay);
           }
         }
         
@@ -390,6 +400,7 @@ void setup() {
     catch(Exception e) {
       println(e);
     }
+    
     // Update the previous date to the current date for the next iteration
     previousDate = date;
     y++;
@@ -401,20 +412,16 @@ void setup() {
   // instead of unnecessarily iterating through elements that won't be displayed on screen
   Collections.reverse(ms.shapes);
   Collections.reverse(bs.shapes);
-
-  long end = millis();
+  
+  lastIndex = (x-1);
   
   labelThread = new LabelThread(labels);
   task = new QuakeTask(labelThread);
   
-  println("START OFFSET: " + START_OFFSET);
-  println("END: " + end);
-  println("START: " + start);
-  
+  long end = millis();
   timer.schedule(task, START_OFFSET-(end-start));
 
   addShutdownHook();
-  
   println("Estimated song length: " + delay/1000/60 + " minutes // " + delay/1000/60/60 + " hours // " + delay/1000/60/60/24 + " days");
   println("Setup lasted " + end + "ms");
 }
@@ -423,11 +430,8 @@ void setup() {
 void draw() {
   noCursor();
   background(0);
-  
   blendMode(ADD);
   smooth(8);
-  
-  
   
   if (DEBUG) {
     debug(); 
@@ -438,12 +442,17 @@ void draw() {
     MAX_SHAPES = timekeeper.getMaxObjects(labelThread.getDate());
   }
   
+  if (isComplete) {
+    bs.kill();
+    ms.kill(); 
+  }
+  
   bs.run();
   ms.run();
   
   // Intro frames
   float endFrame = (frameRate*(INTRO_LIFETIME/1000));
-  if (frameCount < endFrame) {
+  if (frameCount < (endFrame/2)) {
     fill(255, map(frameCount, 0, (endFrame/2), 0, 255));
     noStroke();
     textFont(font, 48);
@@ -452,19 +461,34 @@ void draw() {
   }
   else {
     // Draw the date    
+    if (frameCount < endFrame) {
+      tint(map(frameCount, (endFrame/2), (endFrame), 0, 255));
+    }
+    
+    
+    if (isComplete) {
+      if (tint > 0) {
+        tint(tint);
+        tint-=5;
+      }
+    }
+    
     image(map, canvas.x, canvas.y, canvas.width, canvas.height);
-    noFill();
-    noStroke();
-    fill(fontColor);
-    textFont(fontSmall, FONT_SIZE);
-    textAlign(RIGHT, TOP);
-    text(labelThread.getCurrentLabel(), canvas.width+canvas.x-(PADDING/2), canvas.y+(PADDING/2));
-    
-    
-    // Poseidon Ensemble label
-    textFont(fontSmall, FONT_SIZE);
-    textAlign(LEFT, TOP);
-    text("THE POSEIDON ENSEMBLE", canvas.x+(PADDING/2), canvas.y+(PADDING/2));
+
+    if (labelThread.getCurrentLabel()!="") {
+      noFill();
+      noStroke();
+      fill(fontColor, tint);
+      textFont(fontSmall, FONT_SIZE);
+      textAlign(RIGHT, TOP);
+      text(labelThread.getCurrentLabel(), canvas.width+canvas.x-(PADDING/2), canvas.y+(PADDING/2)+(FONT_SIZE*0.05));
+      
+      
+      // Poseidon Ensemble label
+      textFont(fontSmall, FONT_SIZE);
+      textAlign(LEFT, TOP);
+      text("THE POSEIDON ENSEMBLE", canvas.x+(PADDING/2), canvas.y+(PADDING/2)+(FONT_SIZE*0.05));
+    }
   }
   
   // If we're saving frames, same them to the frameGrabs folder
@@ -482,8 +506,8 @@ void keyPressed() {
 void debug() {
   fill(fontColor);
   textAlign(RIGHT, TOP);
-  text(round(frameRate)+"fps", canvas.x+canvas.width-PADDING, PADDING);
-  text("Objects on screen: " + (ms.numRendered+bs.numRendered), canvas.x+canvas.width-PADDING, PADDING*2);
+  text(round(frameRate)+"fps", canvas.x+canvas.width-PADDING, canvas.y+canvas.height-PADDING);
+  text("Objects on screen: " + (ms.numRendered+bs.numRendered), canvas.x+canvas.width-PADDING, canvas.y+canvas.height-PADDING*2);
   
   for ( Rectangle rectangle : grid) {
     noFill();
@@ -495,9 +519,6 @@ void debug() {
     text("Channel " + (grid.indexOf(rectangle)), map(rectangle.x, 0, 90, 0, width/4)+20, map(rectangle.y, 0, 90, 0, height/2)+20);
   }
 }
-
-
-
 
 int getChannelFromCoordinates(double latitude, double longitude) {
   latitude = latitude+90;
@@ -512,7 +533,6 @@ int getChannelFromCoordinates(double latitude, double longitude) {
 
   return 0;
 }
-
 
 color getColourFromMonth(int month) {
   return color(colours.get(month));
@@ -540,6 +560,10 @@ int mapMagnitude(float magnitude, int min, int max) {
 
 int mapMagnitudeToLength(float magnitude) {
   return int(map(magnitude, 0, 10, NOTE_MIN, NOTE_MAX) * SCALE_FACTOR);
+}
+
+int mapMagnitudeToLength(float base, float magnitude) {
+  return int(base+map(magnitude, 0, 10, NOTE_MIN, NOTE_MAX) * SCALE_FACTOR);
 }
 
 int invert(int n, int min, int max) {

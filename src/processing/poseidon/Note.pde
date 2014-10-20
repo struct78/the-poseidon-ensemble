@@ -1,10 +1,9 @@
 public class Note extends Thread {
-  boolean interval;
   int channel;
   int velocity;
   int pitch;
   double duration;
-  boolean isActive = true;
+  int index;
   MidiBus bus;
   
   Note(MidiBus bus) {
@@ -21,6 +20,11 @@ public class Note extends Thread {
       }
       // Stop playing the note
       bus.sendNoteOff(channel, pitch, velocity);
+      
+      if (index == lastIndex) {
+        this.sleep(5000);
+        isComplete = true;
+      }
     }
     catch(Exception e){
       println(e);

@@ -6,7 +6,21 @@ It is made up of over 780,000 data points and runs for nearly 8 days.
 
 ## How it works
 
-The globe is divided into 8 segments with each representing a single or group of instruments. Each seismic event constitutes a single note, with pitch and velocity determined by the depth and magnitude of the event. Time between notes is determined by time between each seismic event, and time is accelerated by 7500x.
+The globe is divided into 8 segments with each representing a single or group of instruments. Each seismic event constitutes a single note, with pitch determined by the depth of the event, and the velocity determined by the magnitude.
+
+## Timing
+
+Due to the fact that density of data points increased as the years went on, the composition has been broken up into 7 different tempos.
+
+| Start Year | End Year | Time Acceleration |
+|------------|----------|-------------------|
+| -          | 1939     |          500,000x |
+| 1940       | 1959     |          250,000x |
+| 1960       | 1972     |          100,000x |
+| 1973       | 1989     |           10,000x |
+| 1990       | 1999     |            5,000x |
+| 2000       | 2009     |            1,250x |
+| 2010       | Present  |              750x |
 
 Bezier curves between sites identify patterns between seismic events. Stronger lines indicate that events in one region tend to follow another.
 

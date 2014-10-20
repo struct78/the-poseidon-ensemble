@@ -10,6 +10,13 @@ public class ShapeCollection {
     shapes.add(shape);
   }
   
+  void kill() {
+    for (int i = shapes.size()-1; i >= 0; i--) {
+      Shape s = shapes.get(i);
+      s.kill();
+    }
+  }
+  
   void run() {
     numRendered = 0;
     for (int i = shapes.size()-1; i >= 0; i--) {

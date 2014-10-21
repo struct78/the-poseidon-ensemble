@@ -5,3 +5,4 @@ Icon*
 *.db
 *.db-journal
 src/python/cache
+ffmpeg.txt

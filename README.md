@@ -26,6 +26,11 @@ Bezier curves between sites identify patterns between seismic events. Stronger l
 
 5 remaining MIDI channels are reserved for special events (earthquakes > magnitude 8, low and high RMS, etc.)
 
+## Video
+
+[![ScreenShot](https://raw.github.com/struct78/the-poseidon-ensemble/images/screen-shot.png)](http://youtu.be/nItISSSzORQ)
+
+
 ## Processing
 
 The Processing sketch requires the [themidibus](https://github.com/sparks/themidibus) library to run. It uses 13 MIDI channels on a virtual MIDI port named Poseidon, but you can use your own by modifying this line of code in Poseidon.pde

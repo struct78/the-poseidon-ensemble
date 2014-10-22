@@ -28,7 +28,7 @@ Bezier curves between sites identify patterns between seismic events. Stronger l
 
 ## Video
 
-[![ScreenShot](https://raw.github.com/struct78/the-poseidon-ensemble/images/screen-shot.png)](http://youtu.be/nItISSSzORQ)
+[![ScreenShot](https://raw.githubusercontent.com/struct78/the-poseidon-ensemble/master/images/screen-shot.png)](http://youtu.be/nItISSSzORQ)
 
 
 ## Processing
